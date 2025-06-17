@@ -28,10 +28,10 @@ This project represents a comprehensive security research initiative focused on 
 ### 🎓 Academic Context
 
 **Institution**: Fontys University of Applied Sciences  
-**Course**: Advanced Cybersecurity Research  
-**Assignment Type**: Group Research Project  
+**Course**: Cybersecurity Specialization  
+**Assignment Type**: Group Defensive Research Project  
 **Research Focus**: AI/ML Security, LLM Vulnerabilities, Defensive Security  
-**Duration**: Full Semester Project
+**Duration**: Half Semester Project
 
 ### 🔬 Research Questions
 
@@ -71,46 +71,20 @@ Our methodology follows the **NIST AI Risk Management Framework** and incorporat
 
 1. **Prompt Injection Attacks** (CVSS: 9.1 - Critical)
 
-    - **Success Rate**: 76% of injection attempts successful in unprotected systems
     - **Impact**: Complete system compromise, data exfiltration, harmful content generation
-    - **Mitigation Effectiveness**: 85% reduction with implemented content filtering
 
 2. **Cross-Site Scripting via LLM Output** (CVSS: 7.5 - High)
 
     - **Vector**: LLM-generated content containing executable JavaScript
-    - **Detection Rate**: 88% with output sanitization controls
     - **Business Impact**: Client-side code execution, session hijacking
 
 3. **Data Leakage and Information Disclosure** (CVSS: 8.2 - High)
 
     - **Types**: System prompts, configuration data, API keys, training data
-    - **Prevention**: PII detection with 92% accuracy using Nightfall API
     - **Scope**: Affects model behavior and organizational confidentiality
 
 4. **Denial of Service Attacks** (CVSS: 6.8 - Medium)
     - **Methods**: Resource exhaustion, input flooding, token consumption attacks
-    - **Mitigation**: Rate limiting achieving 95% attack prevention
-    - **Performance**: <5ms latency overhead for security controls
-
-#### 📊 Security Control Effectiveness
-
-| Security Control  | Implementation           | Attack Prevention Rate | Performance Impact |
-| ----------------- | ------------------------ | ---------------------- | ------------------ |
-| Rate Limiting     | IP-based throttling      | 95%                    | <5ms latency       |
-| Input Validation  | Schema enforcement       | 88%                    | <2ms latency       |
-| Content Filtering | Pattern matching         | 76%                    | <10ms latency      |
-| PII Detection     | External API integration | 92%                    | <200ms latency     |
-| Authentication    | OAuth2 + JWT             | 100%                   | <15ms latency      |
-
-#### 🎯 NIST Framework Compliance
-
-Our implementation addresses all five core NIST AI RMF functions:
-
--   **GOVERN**: Establish AI governance and risk management policies
--   **MAP**: Categorize AI systems and map associated risks
--   **MEASURE**: Quantify AI risks and security control effectiveness
--   **MANAGE**: Implement risk response and continuous monitoring
--   **GOVERN**: Maintain oversight and continuous improvement
 
 ---
 
@@ -437,16 +411,10 @@ curl http://localhost:3000/api/metrics
 -   [OWASP Top 10 for LLMs](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 -   [AI Security Best Practices](https://owasp.org/www-project-ai-security-and-privacy-guide/)
 
-**NIST AI Framework**:
+**NIST Framework**:
 
--   [AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
--   [AI Security Guidelines](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-218.pdf)
-
-**Academic Publications**:
-
--   "Adversarial Attacks on Large Language Models" - Research Paper Collection
--   "Security Implications of AI/ML Systems" - NIST Special Publication 800-218
--   "Prompt Injection Attacks and Defenses" - ACM Computing Surveys
+-   [Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
+-   [Security Guidelines](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-218.pdf)
 
 ### API Services & Platforms
 
@@ -468,12 +436,6 @@ curl http://localhost:3000/api/metrics
 -   [Grafana Cloud](https://grafana.com/products/cloud/) - Managed monitoring service
 
 ### Security Tools & Frameworks
-
-**Testing & Validation**:
-
--   [GARAK](https://github.com/leondz/garak) - LLM security testing toolkit
--   [IBM Adversarial Robustness Toolbox](https://adversarial-robustness-toolbox.org/) - ML security testing
--   [OWASP ZAP](https://owasp.org/www-project-zap/) - Web application security scanner
 
 **Compliance & Standards**:
 
@@ -519,7 +481,7 @@ We welcome collaboration from academic institutions and industry researchers. Th
 
 -   Fontys University of Applied Sciences for research support
 -   OWASP Foundation for security framework guidance
--   NIST for AI Risk Management Framework development
+-   NIST for Risk Management Framework development
 -   Open source community for foundational technologies
 -   Industry stakeholders for requirements validation and feedback
 
