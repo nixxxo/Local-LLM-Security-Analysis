@@ -94,7 +94,8 @@ async function fetchRecentLogs(
 						const transformedLog: LogEntry = {
 							timestamp: logEntry.timestamp,
 							level: logEntry.level || "info",
-							type: logEntry.type || "general",
+							type:
+								logEntry.service || logEntry.type || "general",
 							message: logEntry.message || "",
 							endpoint: logEntry.endpoint,
 							method: logEntry.method,
