@@ -49,7 +49,7 @@ const BLACKLIST_DURATION = 60 * 1000; // 60 seconds
 const MAX_INPUT_SIZE = 10000;
 
 // Request management
-const MAX_REQUEST_TIMEOUT = 10000;
+const MAX_REQUEST_TIMEOUT = 60000;
 
 // In-memory stores (would use Redis in production)
 const rateLimitStore = new Map<string, RateLimitEntry>();
@@ -159,6 +159,69 @@ function filterHarmfulContent(content: string): ContentFilterResult {
 
 	return { filtered, content };
 }
+
+async function scanContentWithNightfall(content: string): Promise<boolean> {
+	const apiKey = process.env.NIGHTFALL_API_KEY || "NF-nkIlk4e5rF3UogLL4ZZK9szbxg0IKxLq";
+	const url = "https://api.nightfall.ai/v3/scan";
+
+	const payload = {
+		policy: {
+			detectionRules: [
+				{
+					detectors: [
+						{
+							minNumFindings: 1,
+							minConfidence: "VERY_LIKELY",
+							displayName: "US Social Security Number",
+							detectorType: "NIGHTFALL_DETECTOR",
+							nightfallDetector: "US_SOCIAL_SECURITY_NUMBER",
+						},
+						{
+							redactionConfig: {
+								maskConfig: {
+									charsToIgnore: ["-"],
+									maskingChar: "X",
+									maskRightToLeft: true,
+									numCharsToLeaveUnMasked: 4,
+								},
+							},
+							minNumFindings: 1,
+							minConfidence: "VERY_LIKELY",
+							displayName: "Credit Card Number",
+							detectorType: "NIGHTFALL_DETECTOR",
+							nightfallDetector: "CREDIT_CARD_NUMBER",
+						},
+					],
+					name: "My Match Rule",
+					logicalOp: "ANY",
+				},
+			],
+		},
+		payload: [content], // Pass the actual user content here
+	};
+
+	const response = await fetch(url, {
+		method: "POST",
+		headers: {
+			"Accept": "application/json",
+			"Authorization": `Bearer ${apiKey}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify(payload),
+	});
+
+	if (!response.ok) {
+		throw new Error(`Nightfall API responded with status ${response.status}`);
+	}
+
+	const data = await response.json();
+	console.log("Nightfall scan result:", data);
+
+	// Nightfall returns findings; if any findings, treat as harmful
+	return data.findings && data.findings.some(innerArray => innerArray.length > 0);
+}
+
+
 
 /**
  * Check for IP address in blacklist
@@ -468,6 +531,30 @@ async function secureChatHandler(request: NextRequest): Promise<NextResponse> {
 		// Parse and validate request data
 		const requestData = await safeJsonParse(request);
 		const validatedParams = validateRequestData(requestData);
+		const hasHarmfulPII = await scanContentWithNightfall(validatedParams.message);
+		console.log("Nightfall PII scan result:", hasHarmfulPII);
+		if (hasHarmfulPII) {
+			logger.logApi({
+				endpoint: "/api/secure-chat",
+				method: "POST",
+				userId: session.user.email,
+				ip: extractClientIP(request),
+				statusCode: 400,
+				message: "PII or sensitive content detected by Nightfall",
+				metadata: { contentFiltered: true },
+			});
+
+			return NextResponse.json(
+				{
+					error: "Content blocked due to sensitive information detected.",
+					message:
+						"I cannot provide information that could be harmful or dangerous. If you have legitimate questions, please rephrase your request.",
+				},
+				{ status: 400 }
+			);
+		}
+
+
 
 		// Check for harmful content in user input
 		const contentFilter = filterHarmfulContent(validatedParams.message);
