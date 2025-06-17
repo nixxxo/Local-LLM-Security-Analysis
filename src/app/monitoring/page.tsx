@@ -204,6 +204,21 @@ const LogEntryComponent = ({ log }: { log: LogEntry }) => {
 		}
 	};
 
+	const getSecurityEventColor = (severity?: string) => {
+		switch (severity?.toLowerCase()) {
+			case "critical":
+				return "text-red-600 bg-red-600/20 border-red-600/30";
+			case "high":
+				return "text-red-500 bg-red-500/15 border-red-500/25";
+			case "medium":
+				return "text-amber-500 bg-amber-500/15 border-amber-500/25";
+			case "low":
+				return "text-blue-500 bg-blue-500/15 border-blue-500/25";
+			default:
+				return "text-gray-500 bg-gray-500/15 border-gray-500/25";
+		}
+	};
+
 	const getTypeIcon = (type: string) => {
 		switch (type.toLowerCase()) {
 			case "api":
@@ -221,8 +236,26 @@ const LogEntryComponent = ({ log }: { log: LogEntry }) => {
 		return new Date(timestamp).toLocaleTimeString();
 	};
 
+	// Check for security events
+	const isSecurityEvent = log.metadata?.securityEvent;
+	const severity = log.metadata?.severity;
+	const riskScore = log.metadata?.riskScore;
+	const category = log.metadata?.category;
+	const detectedTypes = log.metadata?.detectedTypes;
+	const detectedPatterns = log.metadata?.detectedPatterns;
+	const filterReason = log.metadata?.filterReason;
+	const isContentFiltered = log.metadata?.contentFiltered;
+
 	return (
-		<div className="border-b border-[var(--border-color)] last:border-b-0 p-3 hover:bg-[var(--card-bg)]/30 transition-colors">
+		<div
+			className={`border-b border-[var(--border-color)] last:border-b-0 p-3 hover:bg-[var(--card-bg)]/30 transition-colors ${
+				isSecurityEvent &&
+				severity &&
+				["HIGH", "CRITICAL"].includes(severity)
+					? "bg-red-500/5 border-l-4 border-l-red-500"
+					: ""
+			}`}
+		>
 			<div className="flex items-start gap-3">
 				<div className="flex items-center gap-2 min-w-0 flex-1">
 					<div
@@ -231,7 +264,7 @@ const LogEntryComponent = ({ log }: { log: LogEntry }) => {
 						{getTypeIcon(log.type)}
 					</div>
 					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-2 mb-1">
+						<div className="flex items-center gap-2 mb-1 flex-wrap">
 							<span
 								className={`text-xs px-2 py-1 rounded-full font-medium ${getLogLevelColor(
 									log.level
@@ -260,10 +293,81 @@ const LogEntryComponent = ({ log }: { log: LogEntry }) => {
 									{log.statusCode}
 								</span>
 							)}
+							{isSecurityEvent && severity && (
+								<span
+									className={`text-xs px-2 py-1 rounded-full font-bold border ${getSecurityEventColor(
+										severity
+									)}`}
+								>
+									🚨 {severity} SECURITY
+								</span>
+							)}
 						</div>
 						<p className="text-sm text-[var(--foreground)] break-words">
 							{log.message}
 						</p>
+
+						{/* Filter Reason - Show prominently for filtered content */}
+						{isContentFiltered && filterReason && (
+							<div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded">
+								<div className="text-xs font-semibold text-amber-600 mb-1">
+									🛡️ Content Filtered
+								</div>
+								<div className="text-xs text-[var(--foreground)] opacity-80">
+									<strong>Reason:</strong> {filterReason}
+								</div>
+							</div>
+						)}
+
+						{/* Security Event Details */}
+						{isSecurityEvent && (
+							<div className="mt-2 p-2 bg-[var(--card-bg)]/50 rounded border">
+								<div className="text-xs text-[var(--foreground)] opacity-70 mb-1">
+									<strong>Security Event:</strong>{" "}
+									{isSecurityEvent}
+								</div>
+								{category && (
+									<div className="text-xs text-[var(--foreground)] opacity-70 mb-1">
+										<strong>Category:</strong> {category}
+									</div>
+								)}
+								{riskScore && (
+									<div className="text-xs text-[var(--foreground)] opacity-70 mb-1">
+										<strong>Risk Score:</strong> {riskScore}
+									</div>
+								)}
+								{detectedTypes &&
+									Array.isArray(detectedTypes) &&
+									detectedTypes.length > 0 && (
+										<div className="text-xs text-[var(--foreground)] opacity-70 mb-1">
+											<strong>Detected Types:</strong>{" "}
+											{detectedTypes.join(", ")}
+										</div>
+									)}
+								{detectedPatterns &&
+									Array.isArray(detectedPatterns) &&
+									detectedPatterns.length > 0 && (
+										<div className="text-xs text-[var(--foreground)] opacity-70 mb-1">
+											<strong>Patterns:</strong>{" "}
+											{detectedPatterns
+												.slice(0, 3)
+												.join(", ")}
+											{detectedPatterns.length > 3 &&
+												` (+${
+													detectedPatterns.length - 3
+												} more)`}
+										</div>
+									)}
+								{/* Show filter reason in security details if not already shown above */}
+								{!isContentFiltered && filterReason && (
+									<div className="text-xs text-[var(--foreground)] opacity-70">
+										<strong>Filter Reason:</strong>{" "}
+										{filterReason}
+									</div>
+								)}
+							</div>
+						)}
+
 						{(log.userEmail || log.ip || log.responseTime) && (
 							<div className="flex items-center gap-4 mt-2 text-xs text-[var(--foreground)] opacity-50">
 								{log.userEmail && (
@@ -376,12 +480,23 @@ export default function MonitoringDashboard() {
 	// Filter logs based on search and filter
 	const filteredLogs = logs.filter((log) => {
 		const matchesFilter =
-			logFilter === "all" || log.type.toLowerCase() === logFilter;
+			logFilter === "all" ||
+			log.type.toLowerCase() === logFilter ||
+			(logFilter === "security" && log.metadata?.securityEvent);
 		const matchesSearch =
 			logSearch === "" ||
 			log.message.toLowerCase().includes(logSearch.toLowerCase()) ||
 			log.endpoint?.toLowerCase().includes(logSearch.toLowerCase()) ||
-			log.userEmail?.toLowerCase().includes(logSearch.toLowerCase());
+			log.userEmail?.toLowerCase().includes(logSearch.toLowerCase()) ||
+			log.metadata?.securityEvent
+				?.toLowerCase()
+				.includes(logSearch.toLowerCase()) ||
+			log.metadata?.category
+				?.toLowerCase()
+				.includes(logSearch.toLowerCase()) ||
+			log.metadata?.filterReason
+				?.toLowerCase()
+				.includes(logSearch.toLowerCase());
 		return matchesFilter && matchesSearch;
 	});
 
@@ -622,6 +737,88 @@ export default function MonitoringDashboard() {
 											: "neutral"
 									}
 								/>
+							</div>
+
+							{/* Security Metrics */}
+							<div className="mt-8">
+								<h3 className="text-xl font-bold mb-4 text-[var(--foreground)] flex items-center gap-2">
+									<Shield className="w-6 h-6 text-[var(--accent-color)]" />
+									Security Overview
+								</h3>
+								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+									<MetricCard
+										title="Security Events"
+										value={
+											filteredLogs.filter(
+												(log) =>
+													log.metadata?.securityEvent
+											).length
+										}
+										subtitle="Total security events"
+										icon={Shield}
+										color="red"
+										trend="neutral"
+									/>
+									<MetricCard
+										title="Content Filtered"
+										value={
+											filteredLogs.filter(
+												(log) =>
+													log.metadata
+														?.contentFiltered
+											).length
+										}
+										subtitle="Filtered responses"
+										icon={Filter}
+										color="amber"
+										trend="neutral"
+									/>
+									<MetricCard
+										title="Malicious Attempts"
+										value={
+											filteredLogs.filter(
+												(log) =>
+													log.metadata
+														?.securityEvent ===
+													"MALICIOUS_INTENT_DETECTED"
+											).length
+										}
+										subtitle="Blocked malicious requests"
+										icon={AlertTriangle}
+										color="red"
+										trend="neutral"
+									/>
+									<MetricCard
+										title="PII Detections"
+										value={
+											filteredLogs.filter(
+												(log) =>
+													log.metadata
+														?.securityEvent ===
+													"SENSITIVE_DATA_DETECTED"
+											).length
+										}
+										subtitle="Sensitive data blocked"
+										icon={Eye}
+										color="purple"
+										trend="neutral"
+									/>
+									<MetricCard
+										title="Rate Limit Hits"
+										value={
+											filteredLogs.filter(
+												(log) =>
+													log.metadata
+														?.securityEvent ===
+													"RATE_LIMIT_EXCEEDED"
+											).length
+										}
+										subtitle="Rate limit violations"
+										icon={Zap}
+										color="blue"
+										trend="neutral"
+									/>
+								</div>
 							</div>
 
 							{/* Performance Metrics */}
@@ -883,6 +1080,9 @@ export default function MonitoringDashboard() {
 												</option>
 												<option value="chat">
 													Chat
+												</option>
+												<option value="security">
+													🚨 Security Events
 												</option>
 											</select>
 										</div>

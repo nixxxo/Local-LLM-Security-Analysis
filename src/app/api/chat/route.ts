@@ -82,45 +82,125 @@ async function chatHandler(request: NextRequest): Promise<NextResponse> {
 			await new Promise((resolve) => setTimeout(resolve, 2000));
 		}
 
-		// Call to Ollama instance with all parameters passed directly
-		const response = await fetch(process.env.OLLAMA_URL || "", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(requestParams),
-		});
+		// Try Ollama first, then fallback to OpenRouter
+		let response;
+		let usingFallback = false;
 
-		// VULNERABILITY: Return detailed error messages that could expose implementation
-		if (!response.ok) {
-			const errorData = await response.text();
+		try {
+			// Call to Ollama instance with all parameters passed directly
+			response = await fetch(process.env.OLLAMA_URL || "", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestParams),
+			});
 
-			// Log the error for monitoring
+			if (!response.ok) {
+				throw new Error(`Ollama API error: ${response.status}`);
+			}
+		} catch (ollamaError) {
+			// Log Ollama failure and try OpenRouter fallback
 			logger.logError(
 				"chat-vulnerable",
-				`Ollama API error: ${response.status}`,
+				`Ollama API failed, trying OpenRouter fallback: ${ollamaError}`,
 				{
 					model: selectedModel,
 					messageLength: message?.length || 0,
-					errorDetails: errorData,
+					fallback: true,
 				}
 			);
 
-			return NextResponse.json(
-				{
-					error: `Ollama API error: ${response.status}`,
-					details: errorData,
-					debug_info: {
-						selected_model: selectedModel,
-						request_data: requestData,
+			// Try OpenRouter as fallback
+			const openRouterParams = {
+				model: "google/gemma-3-1b-it:free", // Free model on OpenRouter
+				messages: messages,
+				temperature: temperature || 0.7,
+				max_tokens: max_tokens || 2048,
+				top_p: top_p || 0.9,
+				frequency_penalty: frequency_penalty || 0,
+				presence_penalty: presence_penalty || 0,
+				stop: stop_sequences,
+			};
+
+			try {
+				response = await fetch(
+					"https://openrouter.ai/api/v1/chat/completions",
+					{
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+							"HTTP-Referer":
+								process.env.SITE_URL || "http://localhost:3000",
+							"X-Title":
+								process.env.SITE_NAME || "Local LLM Demo",
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(openRouterParams),
+					}
+				);
+
+				if (!response.ok) {
+					const errorData = await response.text();
+					throw new Error(
+						`OpenRouter API error: ${response.status} - ${errorData}`
+					);
+				}
+
+				usingFallback = true;
+			} catch (openRouterError) {
+				// Both APIs failed
+				logger.logError(
+					"chat-vulnerable",
+					`Both Ollama and OpenRouter APIs failed: ${openRouterError}`,
+					{
+						model: selectedModel,
+						messageLength: message?.length || 0,
+						ollamaError: String(ollamaError),
+						openRouterError: String(openRouterError),
+					}
+				);
+
+				return NextResponse.json(
+					{
+						error: "Both primary and fallback APIs are unavailable",
+						details: {
+							ollama: String(ollamaError),
+							openrouter: String(openRouterError),
+						},
+						debug_info: {
+							selected_model: selectedModel,
+							request_data: requestData,
+						},
 					},
-				},
-				{ status: response.status }
-			);
+					{ status: 503 }
+				);
+			}
 		}
 
 		const data = await response.json();
 		const responseTime = Date.now() - startTime;
+
+		// Handle different response formats (Ollama vs OpenRouter)
+		let responseMessage, promptTokens, completionTokens, totalTokens;
+
+		if (usingFallback) {
+			// OpenRouter response format
+			responseMessage = data.choices?.[0]?.message || {
+				content: "No response available",
+			};
+			promptTokens = data.usage?.prompt_tokens || 0;
+			completionTokens = data.usage?.completion_tokens || 0;
+			totalTokens = data.usage?.total_tokens || 0;
+		} else {
+			// Ollama response format
+			responseMessage = data.message || {
+				content: "No response available",
+			};
+			promptTokens = data.prompt_eval_count || 0;
+			completionTokens = data.eval_count || 0;
+			totalTokens = promptTokens + completionTokens;
+		}
 
 		// Log successful chat interaction
 		logger.logChat({
@@ -131,13 +211,15 @@ async function chatHandler(request: NextRequest): Promise<NextResponse> {
 			temperature: temperature || 0.7,
 			responseTime,
 			tokens: {
-				prompt: data.prompt_eval_count || 0,
-				completion: data.eval_count || 0,
-				total: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+				prompt: promptTokens,
+				completion: completionTokens,
+				total: totalTokens,
 			},
 			metadata: {
 				messageLength: message?.length || 0,
 				vulnerable: true,
+				usingFallback,
+				apiProvider: usingFallback ? "openrouter" : "ollama",
 				parameters: {
 					temperature: temperature || "default",
 					top_p: top_p || "default",
@@ -152,14 +234,16 @@ async function chatHandler(request: NextRequest): Promise<NextResponse> {
 		// VULNERABILITY: Return response data without checking for harmful content
 		// and with additional implementation details that could aid attackers
 		return NextResponse.json({
-			message: data.message,
+			message: responseMessage,
 			done: true,
 			model_used: selectedModel,
-			prompt_tokens: data.prompt_eval_count,
-			completion_tokens: data.eval_count,
-			total_tokens: data.prompt_eval_count + data.eval_count,
+			api_provider: usingFallback ? "openrouter" : "ollama",
+			prompt_tokens: promptTokens,
+			completion_tokens: completionTokens,
+			total_tokens: totalTokens,
 			request_info: {
 				timestamp: new Date().toISOString(),
+				fallback_used: usingFallback,
 				prompt_parameters: {
 					temperature: temperature || "default",
 					top_p: top_p || "default",
