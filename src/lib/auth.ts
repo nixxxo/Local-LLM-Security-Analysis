@@ -27,6 +27,7 @@ export const authOptions = {
 				});
 				return true;
 			} catch (error) {
+				console.log("auth error", error);
 				logger.logError("auth", error as Error);
 				return true; // Still allow login even if logging fails
 			}
