@@ -1,4 +1,4 @@
-# LLM Security Research: Nightfall Firewall
+# Local LLM Security Research
 
 ## Vulnerability Assessment and Mitigation Framework for Local Language Models
 
