@@ -421,30 +421,10 @@ curl http://localhost:3000/api/metrics
 
 #### 5. Access Points
 
--   **Main Application**: http://localhost:3000
--   **Vulnerability Demos**: http://localhost:3000/vulnerabilities
--   **Secure Chat Interface**: http://localhost:3000/secure-chat-demo
--   **Monitoring Dashboard**: http://localhost:3000/monitoring
--   **Metrics Endpoint**: http://localhost:3000/api/metrics
-
-### Production Deployment
-
-#### Security Hardening Checklist
-
--   [ ] Generate strong secrets and rotate regularly
--   [ ] Enable HTTPS with valid SSL certificates
--   [ ] Configure firewall rules and network security
--   [ ] Set up monitoring alerts and log aggregation
--   [ ] Implement backup and disaster recovery
--   [ ] Review and test incident response procedures
-
-#### Performance Optimization
-
--   [ ] Configure CDN for static asset delivery
--   [ ] Enable response caching for appropriate endpoints
--   [ ] Implement connection pooling for external APIs
--   [ ] Set up load balancing for high availability
--   [ ] Monitor and tune security control performance
+-   **Vulnerability Demos**: /vulnerabilities
+-   **Secure Chat Interface**: /secure-chat-demo
+-   **Monitoring Dashboard**: /monitoring
+-   **Metrics Endpoint**: /api/metrics
 
 ---
 
