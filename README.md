@@ -174,6 +174,8 @@ graph TD
     E --> O[Process Query without Security Controls]
     O --> M
 ```
+### Architecture Diagram Overview
+![Diagram](https://github.com/user-attachments/assets/2ddca46b-e20a-4218-bf5d-aa760bb914d1)
 
 ### Key Design Decisions & Rationale
 
