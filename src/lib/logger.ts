@@ -161,9 +161,9 @@ class Logger {
 		// This is a placeholder for the actual implementation
 		// In practice, you'd need to use the Vercel API with proper authentication
 
-		if (!process.env.VERCEL_API_TOKEN) {
+		if (!process.env.VERCEL_OIDC_TOKEN) {
 			console.warn(
-				"VERCEL_API_TOKEN not set - cannot update Edge Config"
+				"VERCEL_OIDC_TOKEN not set - cannot update Edge Config"
 			);
 			return;
 		}
@@ -174,7 +174,7 @@ class Logger {
 				{
 					method: "PATCH",
 					headers: {
-						Authorization: `Bearer ${process.env.VERCEL_API_TOKEN}`,
+						Authorization: `Bearer ${process.env.VERCEL_OIDC_TOKEN}`,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({
@@ -312,7 +312,8 @@ class Logger {
 			...event,
 		};
 
-		this.writeLog("api", logEvent);
+		// Fire and forget - don't await to avoid blocking
+		this.writeLog("api", logEvent).catch(console.error);
 	}
 
 	logAuth(event: Partial<AuthLogEvent>): void {
@@ -325,7 +326,8 @@ class Logger {
 			...event,
 		};
 
-		this.writeLog("auth", logEvent);
+		// Fire and forget - don't await to avoid blocking
+		this.writeLog("auth", logEvent).catch(console.error);
 	}
 
 	logChat(event: Partial<ChatLogEvent>): void {
@@ -337,7 +339,8 @@ class Logger {
 			...event,
 		};
 
-		this.writeLog("chat", logEvent);
+		// Fire and forget - don't await to avoid blocking
+		this.writeLog("chat", logEvent).catch(console.error);
 	}
 
 	logError(
@@ -354,7 +357,8 @@ class Logger {
 			metadata,
 		};
 
-		this.writeLog("error", logEvent);
+		// Fire and forget - don't await to avoid blocking
+		this.writeLog("error", logEvent).catch(console.error);
 	}
 
 	logInfo(
@@ -370,7 +374,8 @@ class Logger {
 			metadata,
 		};
 
-		this.writeLog("general", logEvent);
+		// Fire and forget - don't await to avoid blocking
+		this.writeLog("general", logEvent).catch(console.error);
 	}
 
 	// Utility method to check if running on Vercel

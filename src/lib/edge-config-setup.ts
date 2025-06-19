@@ -30,10 +30,10 @@ interface EdgeConfigSetupResult {
  * Initialize Edge Config with default log structure
  */
 export async function initializeEdgeConfigForLogs(): Promise<EdgeConfigSetupResult> {
-	if (!process.env.VERCEL_API_TOKEN) {
+	if (!process.env.VERCEL_OIDC_TOKEN) {
 		return {
 			success: false,
-			message: "VERCEL_API_TOKEN environment variable is required",
+			message: "VERCEL_OIDC_TOKEN environment variable is required",
 		};
 	}
 
@@ -64,7 +64,7 @@ export async function initializeEdgeConfigForLogs(): Promise<EdgeConfigSetupResu
 			{
 				method: "PATCH",
 				headers: {
-					Authorization: `Bearer ${process.env.VERCEL_API_TOKEN}`,
+					Authorization: `Bearer ${process.env.VERCEL_OIDC_TOKEN}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({ items }),
@@ -119,10 +119,10 @@ export async function checkEdgeConfigHealth(): Promise<{
 		recommendations.push("Set EDGE_CONFIG_ID to your Edge Config ID");
 	}
 
-	if (!process.env.VERCEL_API_TOKEN) {
-		issues.push("VERCEL_API_TOKEN environment variable is not set");
+	if (!process.env.VERCEL_OIDC_TOKEN) {
+		issues.push("VERCEL_OIDC_TOKEN environment variable is not set");
 		recommendations.push(
-			"Set VERCEL_API_TOKEN for Edge Config write operations"
+			"Set VERCEL_OIDC_TOKEN for Edge Config write operations"
 		);
 	}
 
@@ -241,11 +241,11 @@ export async function cleanupOldLogs(daysToKeep: number = 7): Promise<{
 	message: string;
 	logsRemoved: number;
 }> {
-	if (!process.env.VERCEL_API_TOKEN || !process.env.EDGE_CONFIG_ID) {
+	if (!process.env.VERCEL_OIDC_TOKEN || !process.env.EDGE_CONFIG_ID) {
 		return {
 			success: false,
 			message:
-				"VERCEL_API_TOKEN and EDGE_CONFIG_ID are required for cleanup",
+				"VERCEL_OIDC_TOKEN and EDGE_CONFIG_ID are required for cleanup",
 			logsRemoved: 0,
 		};
 	}
@@ -299,7 +299,7 @@ export async function cleanupOldLogs(daysToKeep: number = 7): Promise<{
 				{
 					method: "PATCH",
 					headers: {
-						Authorization: `Bearer ${process.env.VERCEL_API_TOKEN}`,
+						Authorization: `Bearer ${process.env.VERCEL_OIDC_TOKEN}`,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify({ items }),
