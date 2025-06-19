@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
+import { logger } from "@/lib/logger";
 
 interface LogEntry {
 	timestamp: string;
@@ -51,6 +52,56 @@ export async function GET(request: NextRequest) {
 }
 
 async function fetchRecentLogs(
+	limit: number = 100,
+	type: string = "all"
+): Promise<LogEntry[]> {
+	// Check if running on Vercel
+	const isVercel = !!(process.env.VERCEL || process.env.EDGE_CONFIG);
+
+	if (isVercel) {
+		return await fetchLogsFromEdgeConfig(limit, type);
+	} else {
+		return await fetchLogsFromFileSystem(limit, type);
+	}
+}
+
+async function fetchLogsFromEdgeConfig(
+	limit: number = 100,
+	type: string = "all"
+): Promise<LogEntry[]> {
+	try {
+		const logs = await logger.getLogsFromEdgeConfig(type);
+
+		// Transform logs to match our interface
+		const transformedLogs: LogEntry[] = logs.map((logEntry) => ({
+			timestamp: logEntry.timestamp,
+			level: logEntry.level || "info",
+			type: logEntry.service || "general",
+			message: logEntry.message || "",
+			endpoint: logEntry.endpoint,
+			method: logEntry.method,
+			statusCode: logEntry.statusCode,
+			userEmail: logEntry.userEmail,
+			ip: logEntry.ip,
+			responseTime: logEntry.responseTime,
+			metadata: logEntry.metadata,
+		}));
+
+		// Sort by timestamp (newest first, then slice to limit)
+		transformedLogs.sort(
+			(a, b) =>
+				new Date(b.timestamp).getTime() -
+				new Date(a.timestamp).getTime()
+		);
+
+		return transformedLogs.slice(0, limit);
+	} catch (error) {
+		console.error("Error fetching logs from Edge Config:", error);
+		return [];
+	}
+}
+
+async function fetchLogsFromFileSystem(
 	limit: number = 100,
 	type: string = "all"
 ): Promise<LogEntry[]> {

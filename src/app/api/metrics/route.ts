@@ -71,7 +71,9 @@ async function metricsHandler(request: NextRequest): Promise<NextResponse> {
 
 			case "grafana":
 				// Grafana-compatible format
-				const grafanaMetrics = metricsCollector.getGrafanaMetrics(days);
+				const grafanaMetrics = await metricsCollector.getGrafanaMetrics(
+					days
+				);
 				return NextResponse.json(grafanaMetrics, {
 					headers: {
 						"Cache-Control": "no-cache",
@@ -81,8 +83,8 @@ async function metricsHandler(request: NextRequest): Promise<NextResponse> {
 			default:
 				// Standard JSON format with all details
 				const metrics = realtime
-					? metricsCollector.getRealTimeMetrics()
-					: metricsCollector.getMetrics(days);
+					? await metricsCollector.getRealTimeMetrics()
+					: await metricsCollector.getMetrics(days);
 
 				return NextResponse.json(
 					{

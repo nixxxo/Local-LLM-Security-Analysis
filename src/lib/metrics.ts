@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
-import { LogEvent, AuthLogEvent, ChatLogEvent } from "./logger";
+import { LogEvent, AuthLogEvent, ChatLogEvent, logger } from "./logger";
 import {
 	register,
 	collectDefaultMetrics,
@@ -99,12 +99,38 @@ export interface SystemMetrics {
 
 class MetricsCollector {
 	private logDir: string;
+	private isVercel: boolean;
 
 	constructor() {
 		this.logDir = join(process.cwd(), "logs");
+		this.isVercel = !!(process.env.VERCEL || process.env.EDGE_CONFIG);
 	}
 
-	private readLogFiles(type: string, days: number = 7): LogEvent[] {
+	private async readLogFilesFromEdgeConfig(
+		type: string,
+		days: number = 7
+	): Promise<LogEvent[]> {
+		try {
+			const logs = await logger.getLogsFromEdgeConfig(type);
+
+			// Filter logs by date range
+			const cutoffDate = new Date();
+			cutoffDate.setDate(cutoffDate.getDate() - days);
+
+			return logs.filter((log) => new Date(log.timestamp) >= cutoffDate);
+		} catch (error) {
+			console.error(
+				`Failed to read logs from Edge Config for type ${type}:`,
+				error
+			);
+			return [];
+		}
+	}
+
+	private readLogFilesFromFileSystem(
+		type: string,
+		days: number = 7
+	): LogEvent[] {
 		const logs: LogEvent[] = [];
 		const cutoffDate = new Date();
 		cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -145,6 +171,17 @@ class MetricsCollector {
 		}
 
 		return logs;
+	}
+
+	private async readLogFiles(
+		type: string,
+		days: number = 7
+	): Promise<LogEvent[]> {
+		if (this.isVercel) {
+			return await this.readLogFilesFromEdgeConfig(type, days);
+		} else {
+			return this.readLogFilesFromFileSystem(type, days);
+		}
 	}
 
 	private getHourKey(timestamp: string): string {
@@ -308,10 +345,12 @@ class MetricsCollector {
 		};
 	}
 
-	getMetrics(days: number = 7): SystemMetrics {
-		const apiLogs = this.readLogFiles("api", days);
-		const authLogs = this.readLogFiles("auth", days) as AuthLogEvent[];
-		const chatLogs = this.readLogFiles("chat", days) as ChatLogEvent[];
+	async getMetrics(days: number = 7): Promise<SystemMetrics> {
+		const [apiLogs, authLogs, chatLogs] = await Promise.all([
+			this.readLogFiles("api", days),
+			this.readLogFiles("auth", days),
+			this.readLogFiles("chat", days),
+		]);
 
 		const endDate = new Date();
 		const startDate = new Date();
@@ -319,8 +358,8 @@ class MetricsCollector {
 
 		return {
 			api: this.calculateApiMetrics(apiLogs),
-			auth: this.calculateAuthMetrics(authLogs),
-			chat: this.calculateChatMetrics(chatLogs),
+			auth: this.calculateAuthMetrics(authLogs as AuthLogEvent[]),
+			chat: this.calculateChatMetrics(chatLogs as ChatLogEvent[]),
 			timeRange: {
 				start: startDate.toISOString(),
 				end: endDate.toISOString(),
@@ -329,13 +368,15 @@ class MetricsCollector {
 	}
 
 	// Get real-time metrics for the last hour
-	getRealTimeMetrics(): SystemMetrics {
-		return this.getMetrics(1);
+	async getRealTimeMetrics(): Promise<SystemMetrics> {
+		return await this.getMetrics(1);
 	}
 
 	// Get aggregated metrics for Grafana
-	getGrafanaMetrics(days: number = 7): Record<string, string | number> {
-		const metrics = this.getMetrics(days);
+	async getGrafanaMetrics(
+		days: number = 7
+	): Promise<Record<string, string | number>> {
+		const metrics = await this.getMetrics(days);
 
 		return {
 			api_total_requests: metrics.api.totalRequests,
@@ -407,7 +448,7 @@ class MetricsCollector {
 	async getPrometheusMetrics(): Promise<string> {
 		try {
 			// Update active users gauge
-			const metrics = this.getMetrics(1); // Last 24 hours
+			const metrics = await this.getMetrics(1); // Last 24 hours
 			activeUsers.labels("24h").set(metrics.api.uniqueUsers);
 			activeUsers.labels("chat").set(metrics.chat.uniqueChatUsers);
 
