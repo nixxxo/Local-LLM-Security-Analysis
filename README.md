@@ -1,9 +1,11 @@
 # Local LLM Security Research
-
+## Research available [here](https://nbaburov.notion.site/Local-LLM-Secure-Research-217258cb140c8089a55bd31b12861c1a?pvs=74).
 ## Vulnerability Assessment and Mitigation Framework for Local Language Models
 
 **A Comprehensive Security Research Project**  
 _Fontys University of Applied Sciences - Group Assignment_
+
+
 
 ---
 
