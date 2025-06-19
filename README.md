@@ -149,32 +149,33 @@ The project implements a **side-by-side comparison architecture** that allows re
 
 ## 🏗️ Technical Architecture & Design Decisions
 
-### System Architecture Overview
+### Flow Diagram Overview
 
 ```mermaid
-graph TB
-    A[Client Browser] --> B[Next.js Frontend]
-    B --> C{Authentication Layer}
+graph TD
+    A[Client] --> B[Request to API Endpoint]
+    B --> C{Authentication Check}
     C -->|Authenticated| D[Security Middleware Stack]
     C -->|Unauthenticated| E[Vulnerable Endpoint]
-
+    
     D --> F[Rate Limiting]
     F --> G[Input Validation]
-    G --> H[Content Filtering]
-    H --> I[AI Firewall]
-    I --> J[LLM Integration Layer]
-
-    E --> J
-
-    J --> K[Ollama Local LLM]
-    K --- L[OpenRouter Fallback]
-
-    M[Monitoring System] --> N[Prometheus Metrics]
-
-
-    J --> M
-    D --> M
+    G --> H[Content Filtering & PII Detection]
+    H --> I[LLM Processing Layer]
+    
+    I --> J{Local Ollama LLM Available?}
+    J -->|Yes| K[Process Query with Local LLM]
+    J -->|No| L[Fallback to OpenRouter Cloud LLM]
+    
+    K --> M[Log & Monitor Interaction]
+    L --> M
+    
+    M --> N[Return Response to Client]
+    E --> O[Process Query without Security Controls]
+    O --> M
 ```
+### Architecture Diagram Overview
+![Diagram](https://github.com/user-attachments/assets/2ddca46b-e20a-4218-bf5d-aa760bb914d1)
 
 ### Key Design Decisions & Rationale
 
