@@ -157,24 +157,26 @@ graph TD
     B --> C{Authentication Check}
     C -->|Authenticated| D[Security Middleware Stack]
     C -->|Unauthenticated| E[Vulnerable Endpoint]
-    
+
     D --> F[Rate Limiting]
     F --> G[Input Validation]
     G --> H[Content Filtering & PII Detection]
     H --> I[LLM Processing Layer]
-    
+
     I --> J{Local Ollama LLM Available?}
     J -->|Yes| K[Process Query with Local LLM]
     J -->|No| L[Fallback to OpenRouter Cloud LLM]
-    
+
     K --> M[Log & Monitor Interaction]
     L --> M
-    
+
     M --> N[Return Response to Client]
     E --> O[Process Query without Security Controls]
     O --> M
 ```
+
 ### Architecture Diagram Overview
+
 ![Diagram](https://github.com/user-attachments/assets/2ddca46b-e20a-4218-bf5d-aa760bb914d1)
 
 ### Key Design Decisions & Rationale
@@ -318,62 +320,62 @@ graph TD
 
 ### Prerequisites
 
-**System Requirements**:
+-   Node.js 18+ and npm
+-   GitHub account for logging
+-   (Optional) Local Ollama installation for LLM models
 
--   **Node.js 18+** with npm package manager
--   **Ollama** (optional, for local LLM deployment)
--   **Git** for version control
+### Quick Start
 
-**Account Requirements**:
+1. **Clone the repository**
 
--   **Google OAuth Application** (for authentication)
--   **OpenRouter Account** (for LLM fallback)
--   **Nightfall Account** (for PII detection)
--   **Grafana Cloud** (optional, for monitoring)
+    ```bash
+    git clone https://github.com/your-username/local-llm.git
+    cd local-llm
+    ```
 
-### Quick Start Guide
+2. **Install dependencies**
 
-#### 1. Repository Setup
+    ```bash
+    npm install
+    ```
 
-```bash
-# Clone the repository
-git clone https://github.com/your-org/local-llm
-cd local-llm
+3. **Set up GitHub Gist logging**
 
-# Install dependencies
-npm install
-```
+    - Create a GitHub Personal Access Token with `gist` scope
+    - See [GITHUB_GIST_LOGGING_SETUP.md](./GITHUB_GIST_LOGGING_SETUP.md) for detailed instructions
 
-#### 2. Environment Configuration
+4. **Configure environment variables**
 
-```bash
-# Copy environment template
-cp .env.example .env.local
+    ```bash
+    cp .env.local.example .env.local
+    # Edit .env.local with your GitHub token
+    ```
 
-# Configure required environment variables
-cat >> .env.local << EOF
-# Core Application
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=$(openssl rand -base64 32)
+5. **Start the development server**
 
-# Authentication
-GOOGLE_CLIENT_ID=your-google-oauth-client-id
-GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+    ```bash
+    npm run dev
+    ```
 
-# LLM Configuration
-OLLAMA_URL=http://localhost:11434
-OPENROUTER_API_KEY=your-openrouter-api-key
+6. **Access the application**
+    - Main app: http://localhost:3000
+    - Monitoring dashboard: http://localhost:3000/monitoring
+    - Vulnerability demos: http://localhost:3000/vulnerabilities
 
-# Security Services
-NIGHTFALL_API_KEY=your-nightfall-api-key
+### Logging System
 
-# Monitoring (Optional)
-GRAFANA_API_KEY=your-grafana-api-key
-PROMETHEUS_ENDPOINT=your-prometheus-endpoint
-EOF
-```
+This project uses **GitHub Gist-based logging** for universal compatibility:
 
-#### 3. Local LLM Setup (Optional)
+-   ✅ **100% Free** - No infrastructure costs
+-   ✅ **Universal** - Works on localhost and Vercel
+-   ✅ **Zero Setup** - Automatic gist creation
+-   ✅ **Web Interface** - View logs directly on GitHub
+
+For complete setup instructions, see [GITHUB_GIST_LOGGING_SETUP.md](./GITHUB_GIST_LOGGING_SETUP.md).
+
+### Advanced Configuration
+
+#### Optional: Local LLM Setup
 
 ```bash
 # Install and start Ollama
@@ -384,17 +386,29 @@ ollama serve
 ollama pull gemma3:1b
 ```
 
-#### 4. Application Launch
+#### Optional: Additional Services
+
+For enhanced functionality, configure these optional services:
+
+-   **Google OAuth**: For authentication (see NextAuth.js docs)
+-   **OpenRouter**: For LLM fallback capabilities
+-   **Nightfall API**: For PII detection features
+
+### Verification
+
+After setup, verify the installation:
 
 ```bash
-# Start development server
-npm run dev
+# Check application health
+curl http://localhost:3000/api/gist-logs?action=health
 
-# Verify installation
-curl http://localhost:3000/api/metrics
+# Test logging system
+curl -X POST http://localhost:3000/api/gist-logs \
+  -H "Content-Type: application/json" \
+  -d '{"action": "test"}'
 ```
 
-#### 5. Access Points
+### Access Points
 
 -   **Vulnerability Demos**: /vulnerabilities
 -   **Secure Chat Interface**: /secure-chat-demo
@@ -468,8 +482,8 @@ We welcome collaboration from academic institutions and industry researchers. Th
 ### Contact Information
 
 **Research Team**: N. B., D. N., J. M., M. M., A. M.
-**Primary Contact**: [Project Repository Issues](https://github.com/nixxxo/Local-LLM-Security-Analysis)  
-**Academic Supervisor**: Available through university channels  
+**Primary Contact**: [Project Repository Issues](https://github.com/nixxxo/Local-LLM-Security-Analysis)
+**Academic Supervisor**: Available through university channels
 **Industry Partnerships**: Contact through official university collaboration programs
 
 ---

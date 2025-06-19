@@ -2,8 +2,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { readFileSync, readdirSync, existsSync } from "fs";
-import { join } from "path";
 import { logger } from "@/lib/logger";
 
 interface LogEntry {
@@ -24,26 +22,51 @@ export async function GET(request: NextRequest) {
 	try {
 		// Check authentication
 		const session = await getServerSession(authOptions);
-		if (!session) {
+		if (!session?.user?.email) {
 			return NextResponse.json(
 				{ error: "Unauthorized" },
 				{ status: 401 }
 			);
 		}
 
+		// Get query parameters
 		const { searchParams } = new URL(request.url);
 		const limit = parseInt(searchParams.get("limit") || "100");
 		const type = searchParams.get("type") || "all";
 
-		const logs = await fetchRecentLogs(limit, type);
+		// Fetch logs from GitHub Gist
+		const logs = await fetchLogsFromGist(limit, type);
+
+		// Log this API access
+		logger.logApi({
+			method: request.method,
+			endpoint: "/api/logs",
+			statusCode: 200,
+			userEmail: session.user.email,
+			ip: request.headers.get("x-forwarded-for") || "unknown",
+			responseTime:
+				Date.now() - ((request as any)._startTime || Date.now()),
+			metadata: { type, limit },
+		});
 
 		return NextResponse.json({
 			success: true,
-			logs,
-			total: logs.length,
+			data: {
+				logs,
+				total: logs.length,
+				type,
+				limit,
+			},
 		});
 	} catch (error) {
 		console.error("Error fetching logs:", error);
+
+		// Log the error
+		logger.logError("api", error as Error, {
+			endpoint: "/api/logs",
+			method: "GET",
+		});
+
 		return NextResponse.json(
 			{ error: "Failed to fetch logs" },
 			{ status: 500 }
@@ -51,26 +74,12 @@ export async function GET(request: NextRequest) {
 	}
 }
 
-async function fetchRecentLogs(
-	limit: number = 100,
-	type: string = "all"
-): Promise<LogEntry[]> {
-	// Check if running on Vercel
-	const isVercel = !!(process.env.VERCEL || process.env.EDGE_CONFIG);
-
-	if (isVercel) {
-		return await fetchLogsFromEdgeConfig(limit, type);
-	} else {
-		return await fetchLogsFromFileSystem(limit, type);
-	}
-}
-
-async function fetchLogsFromEdgeConfig(
+async function fetchLogsFromGist(
 	limit: number = 100,
 	type: string = "all"
 ): Promise<LogEntry[]> {
 	try {
-		const logs = await logger.getLogsFromEdgeConfig(type);
+		const logs = await logger.getLogsFromGist(type);
 
 		// Transform logs to match our interface
 		const transformedLogs: LogEntry[] = logs.map((logEntry) => ({
@@ -96,85 +105,7 @@ async function fetchLogsFromEdgeConfig(
 
 		return transformedLogs.slice(0, limit);
 	} catch (error) {
-		console.error("Error fetching logs from Edge Config:", error);
+		console.error("Error fetching logs from GitHub Gist:", error);
 		return [];
 	}
-}
-
-async function fetchLogsFromFileSystem(
-	limit: number = 100,
-	type: string = "all"
-): Promise<LogEntry[]> {
-	const logDir = join(process.cwd(), "logs");
-	const logs: LogEntry[] = [];
-
-	if (!existsSync(logDir)) {
-		return logs;
-	}
-
-	try {
-		// Get all log files, sorted by date (newest first)
-		const files = readdirSync(logDir)
-			.filter((file) => file.endsWith(".jsonl"))
-			.sort()
-			.reverse();
-
-		// Read files until we have enough logs
-		for (const file of files) {
-			if (logs.length >= limit) break;
-
-			// Skip if filtering by type and file doesn't match
-			if (type !== "all" && !file.startsWith(`${type}-`)) {
-				continue;
-			}
-
-			try {
-				const content = readFileSync(join(logDir, file), "utf-8");
-				const lines = content
-					.trim()
-					.split("\n")
-					.filter((line) => line.trim());
-
-				for (const line of lines) {
-					if (logs.length >= limit * 2) break; // Get more logs to ensure we have enough after sorting
-
-					try {
-						const logEntry = JSON.parse(line);
-
-						// Transform log entry to match our interface
-						const transformedLog: LogEntry = {
-							timestamp: logEntry.timestamp,
-							level: logEntry.level || "info",
-							type:
-								logEntry.service || logEntry.type || "general",
-							message: logEntry.message || "",
-							endpoint: logEntry.endpoint,
-							method: logEntry.method,
-							statusCode: logEntry.statusCode,
-							userEmail: logEntry.userEmail,
-							ip: logEntry.ip,
-							responseTime: logEntry.responseTime,
-							metadata: logEntry.metadata,
-						};
-
-						logs.push(transformedLog);
-					} catch {
-						console.warn(`Failed to parse log line: ${line}`);
-					}
-				}
-			} catch (fileError) {
-				console.warn(`Failed to read log file ${file}:`, fileError);
-			}
-		}
-	} catch (error) {
-		console.error("Error reading log directory:", error);
-	}
-
-	// Sort by timestamp (oldest first, so latest appear at bottom in UI)
-	logs.sort(
-		(a, b) =>
-			new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-	);
-
-	return logs.slice(0, limit);
 }

@@ -442,7 +442,8 @@ export default function MonitoringDashboard() {
 				throw new Error("Failed to fetch logs");
 			}
 			const result = await response.json();
-			setLogs(result.logs || []);
+			// Fix: Use result.data.logs instead of result.logs
+			setLogs(result.data?.logs || []);
 		} catch (err) {
 			console.error("Failed to fetch logs:", err);
 		} finally {

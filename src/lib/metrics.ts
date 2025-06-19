@@ -1,5 +1,3 @@
-import { readFileSync, readdirSync, existsSync } from "fs";
-import { join } from "path";
 import { LogEvent, AuthLogEvent, ChatLogEvent, logger } from "./logger";
 import {
 	register,
@@ -98,20 +96,16 @@ export interface SystemMetrics {
 }
 
 class MetricsCollector {
-	private logDir: string;
-	private isVercel: boolean;
-
 	constructor() {
-		this.logDir = join(process.cwd(), "logs");
-		this.isVercel = !!(process.env.VERCEL || process.env.EDGE_CONFIG);
+		// No need for file system or Edge Config setup
 	}
 
-	private async readLogFilesFromEdgeConfig(
+	private async readLogsFromGist(
 		type: string,
 		days: number = 7
 	): Promise<LogEvent[]> {
 		try {
-			const logs = await logger.getLogsFromEdgeConfig(type);
+			const logs = await logger.getLogsFromGist(type);
 
 			// Filter logs by date range
 			const cutoffDate = new Date();
@@ -120,67 +114,10 @@ class MetricsCollector {
 			return logs.filter((log) => new Date(log.timestamp) >= cutoffDate);
 		} catch (error) {
 			console.error(
-				`Failed to read logs from Edge Config for type ${type}:`,
+				`Failed to read logs from GitHub Gist for type ${type}:`,
 				error
 			);
 			return [];
-		}
-	}
-
-	private readLogFilesFromFileSystem(
-		type: string,
-		days: number = 7
-	): LogEvent[] {
-		const logs: LogEvent[] = [];
-		const cutoffDate = new Date();
-		cutoffDate.setDate(cutoffDate.getDate() - days);
-
-		if (!existsSync(this.logDir)) {
-			return logs;
-		}
-
-		const files = readdirSync(this.logDir)
-			.filter(
-				(file) => file.startsWith(`${type}-`) && file.endsWith(".jsonl")
-			)
-			.sort()
-			.reverse()
-			.slice(0, days);
-
-		for (const file of files) {
-			try {
-				const content = readFileSync(join(this.logDir, file), "utf-8");
-				const lines = content
-					.trim()
-					.split("\n")
-					.filter((line) => line.trim());
-
-				for (const line of lines) {
-					try {
-						const log = JSON.parse(line) as LogEvent;
-						if (new Date(log.timestamp) >= cutoffDate) {
-							logs.push(log);
-						}
-					} catch {
-						console.warn(`Failed to parse log line: ${line}`);
-					}
-				}
-			} catch (error) {
-				console.warn(`Failed to read log file ${file}:`, error);
-			}
-		}
-
-		return logs;
-	}
-
-	private async readLogFiles(
-		type: string,
-		days: number = 7
-	): Promise<LogEvent[]> {
-		if (this.isVercel) {
-			return await this.readLogFilesFromEdgeConfig(type, days);
-		} else {
-			return this.readLogFilesFromFileSystem(type, days);
 		}
 	}
 
@@ -347,9 +284,9 @@ class MetricsCollector {
 
 	async getMetrics(days: number = 7): Promise<SystemMetrics> {
 		const [apiLogs, authLogs, chatLogs] = await Promise.all([
-			this.readLogFiles("api", days),
-			this.readLogFiles("auth", days),
-			this.readLogFiles("chat", days),
+			this.readLogsFromGist("api", days),
+			this.readLogsFromGist("auth", days),
+			this.readLogsFromGist("chat", days),
 		]);
 
 		const endDate = new Date();
